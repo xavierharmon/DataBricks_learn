@@ -205,6 +205,60 @@ class EcommerceSemanticModel:
         )
         self._tables["customers"] = customers_table
 
+    def _register_products_table(self) -> None:
+        """Define the dim_products semantic table."""
+
+        products_table = SemanticModelTable(
+            name="products",
+            physical_table="marts.dim_products",
+            primary_key="product_id",
+            grain="One row per product SKU (current state)",
+            description="Product dimension with catalog attributes and sales performance metrics.",
+            dimensions=[
+                SemanticDimension("category",         "categorical", "Product Category"),
+                SemanticDimension("subcategory",      "categorical", "Product Subcategory"),
+                SemanticDimension("status",           "categorical", "Product Status"),
+                SemanticDimension("performance_tier", "categorical", "Performance Tier"),
+                SemanticDimension("is_available",     "boolean",     "Is Available"),
+                SemanticDimension("is_in_stock",      "boolean",     "Is In Stock"),
+            ],
+            measures=[
+                SemanticMetric(
+                    name="product_count",
+                    label="Product Count",
+                    sql="count(product_id)",
+                    aggregation="count",
+                    description="Total number of products in the catalog.",
+                    format="number"
+                ),
+                SemanticMetric(
+                    name="avg_list_price",
+                    label="Avg List Price",
+                    sql="avg(list_price)",
+                    aggregation="average",
+                    description="Average published price across all active products.",
+                    format="currency"
+                ),
+                SemanticMetric(
+                    name="avg_gross_margin",
+                    label="Avg Gross Margin",
+                    sql="avg(gross_margin_rate)",
+                    aggregation="average",
+                    description="Average gross margin rate across products with sales.",
+                    format="percent"
+                ),
+                SemanticMetric(
+                    name="total_product_revenue",
+                    label="Total Product Revenue",
+                    sql="sum(total_revenue)",
+                    aggregation="sum",
+                    description="Total revenue generated across all products.",
+                    format="currency"
+                ),
+            ]
+        )
+        self._tables["products"] = products_table
+
     def _register_relationships(self) -> None:
         """
         Define relationships between tables.
