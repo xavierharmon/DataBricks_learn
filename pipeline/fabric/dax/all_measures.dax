@@ -1,0 +1,313 @@
+-- fabric/dax/all_measures.dax
+-- -----------------------------------------------------------------------
+-- ALL DAX MEASURES — Complete Reference
+-- -----------------------------------------------------------------------
+-- DAX (Data Analysis Expressions) is the formula language used by
+-- Azure Fabric Semantic Models and Power BI.
+--
+-- HOW TO ADD THESE TO YOUR FABRIC SEMANTIC MODEL:
+--   1. Open your Fabric Semantic Model
+--   2. Click on a table in the Model view
+--   3. Click "New measure" in the ribbon
+--   4. Paste the measure expression and set the name and format
+--
+-- DAX vs SQL — KEY DIFFERENCES:
+--   SQL aggregates rows in a query.
+--   DAX aggregates based on the FILTER CONTEXT — what filters are active
+--   in the report at that moment (slicers, page filters, visual filters).
+--
+--   This means a DAX measure like [Total Revenue] automatically responds
+--   to a date slicer, a country filter, a segment dropdown — without you
+--   writing WHERE clauses. The filter context does it automatically.
+--
+-- NAMING CONVENTION: Use Title Case with spaces (not snake_case).
+--   Power BI shows measure names to business users, so they should
+--   read naturally: "Total Revenue" not "total_revenue"
+-- -----------------------------------------------------------------------
+
+
+-- =======================================================================
+-- TABLE: fct_orders
+-- =======================================================================
+
+-- -----------------------------------------------------------------------
+-- VOLUME MEASURES
+-- -----------------------------------------------------------------------
+
+-- Total Orders
+-- All orders regardless of status. Use "Revenue Order Count" for financial reporting.
+Total Orders = COUNTROWS(fct_orders)
+
+
+-- Revenue Order Count
+-- Orders that generated revenue (status = delivered, shipped, or processing).
+-- This is the standard order count for revenue reporting.
+Revenue Order Count =
+CALCULATE(
+    COUNTROWS(fct_orders),
+    fct_orders[is_revenue_order] = 1
+)
+
+
+-- Cancelled Orders
+Cancelled Orders =
+CALCULATE(
+    COUNTROWS(fct_orders),
+    fct_orders[status] = "cancelled"
+)
+
+
+-- Cancellation Rate
+-- What % of all orders are cancelled. High rate = investigate checkout or product issues.
+Cancellation Rate =
+DIVIDE(
+    [Cancelled Orders],
+    [Total Orders],
+    0   -- Return 0 if denominator is blank (avoids divide-by-zero errors)
+)
+
+
+-- -----------------------------------------------------------------------
+-- REVENUE MEASURES
+-- -----------------------------------------------------------------------
+
+-- Total Revenue
+-- Net revenue from revenue orders only. Excludes shipping. Primary revenue metric.
+Total Revenue =
+CALCULATE(
+    SUM(fct_orders[net_revenue]),
+    fct_orders[is_revenue_order] = 1
+)
+
+
+-- Gross Revenue
+-- Total order value including shipping, for revenue orders only.
+Gross Revenue =
+CALCULATE(
+    SUM(fct_orders[total_amount]),
+    fct_orders[is_revenue_order] = 1
+)
+
+
+-- Total Shipping Revenue
+-- Shipping charges collected on revenue orders.
+Total Shipping Revenue =
+CALCULATE(
+    SUM(fct_orders[shipping_amount]),
+    fct_orders[is_revenue_order] = 1
+)
+
+
+-- Average Order Value (AOV)
+-- Average net revenue per revenue order. Key e-commerce KPI.
+-- DIVIDE() is safer than / — returns 0 instead of error when denominator = 0.
+Average Order Value =
+DIVIDE(
+    [Total Revenue],
+    [Revenue Order Count],
+    0
+)
+
+
+-- Total Units Sold
+-- Total product units on revenue orders.
+Total Units Sold =
+CALCULATE(
+    SUM(fct_orders[total_units]),
+    fct_orders[is_revenue_order] = 1
+)
+
+
+-- -----------------------------------------------------------------------
+-- TIME INTELLIGENCE MEASURES
+-- Time intelligence functions in DAX require a Date table.
+-- These measures use the order_date column directly for simplicity.
+-- For production, connect a proper Date dimension table.
+-- -----------------------------------------------------------------------
+
+-- Revenue Prior Month
+-- Revenue for the same period one month ago. Used for MoM comparison.
+Revenue Prior Month =
+CALCULATE(
+    [Total Revenue],
+    DATEADD(fct_orders[order_date], -1, MONTH)
+)
+
+
+-- Revenue MoM Growth
+-- Month-over-month revenue growth percentage.
+Revenue MoM Growth =
+VAR CurrentRevenue = [Total Revenue]
+VAR PriorRevenue   = [Revenue Prior Month]
+RETURN
+DIVIDE(
+    CurrentRevenue - PriorRevenue,
+    PriorRevenue,
+    0
+)
+
+
+-- Revenue YTD
+-- Revenue from Jan 1 of the current year to the current filter context date.
+Revenue YTD =
+CALCULATE(
+    [Total Revenue],
+    DATESYTD(fct_orders[order_date])
+)
+
+
+-- Revenue Prior Year
+-- Same period last year. Used for YoY comparison.
+Revenue Prior Year =
+CALCULATE(
+    [Total Revenue],
+    DATEADD(fct_orders[order_date], -1, YEAR)
+)
+
+
+-- Revenue YoY Growth
+-- Year-over-year revenue growth percentage.
+Revenue YoY Growth =
+DIVIDE(
+    [Total Revenue] - [Revenue Prior Year],
+    [Revenue Prior Year],
+    0
+)
+
+
+-- -----------------------------------------------------------------------
+-- RUNNING TOTALS (useful for cumulative revenue charts)
+-- -----------------------------------------------------------------------
+
+-- Revenue Running Total
+-- Cumulative revenue from the earliest date to the current filter context.
+Revenue Running Total =
+CALCULATE(
+    [Total Revenue],
+    FILTER(
+        ALL(fct_orders[order_date]),
+        fct_orders[order_date] <= MAX(fct_orders[order_date])
+    )
+)
+
+
+-- =======================================================================
+-- TABLE: dim_customers
+-- =======================================================================
+
+-- Customer Count
+-- Total registered customer accounts (all statuses, not just purchasers).
+Customer Count = COUNTROWS(dim_customers)
+
+
+-- Purchasing Customers
+-- Customers who have placed at least one order of any status.
+Purchasing Customers =
+CALCULATE(
+    COUNTROWS(dim_customers),
+    dim_customers[total_orders] > 0
+)
+
+
+-- Average Customer LTV
+-- Average lifetime value across customers who have made at least one purchase.
+-- Excludes customers with zero purchases to avoid skewing the average down.
+Avg Customer LTV =
+CALCULATE(
+    AVERAGE(dim_customers[lifetime_value]),
+    dim_customers[lifetime_value] > 0
+)
+
+
+-- Repeat Customer Rate
+-- % of purchasing customers who have bought 2 or more times.
+-- Higher = better retention and loyalty.
+Repeat Customer Rate =
+DIVIDE(
+    CALCULATE(
+        COUNTROWS(dim_customers),
+        dim_customers[is_repeat_customer] = 1
+    ),
+    [Purchasing Customers],
+    0
+)
+
+
+-- High Value Customer Count
+-- Customers with lifetime value >= $1,000.
+High Value Customers =
+CALCULATE(
+    COUNTROWS(dim_customers),
+    dim_customers[is_high_value] = 1
+)
+
+
+-- =======================================================================
+-- TABLE: dim_products
+-- =======================================================================
+
+-- Product Count
+-- Total products in the catalog (all statuses).
+Product Count = COUNTROWS(dim_products)
+
+
+-- Active Products
+-- Products that are active and in stock (available to purchase).
+Active Products =
+CALCULATE(
+    COUNTROWS(dim_products),
+    dim_products[is_available] = 1
+)
+
+
+-- Avg List Price
+-- Average published price across all active products.
+Avg List Price =
+CALCULATE(
+    AVERAGE(dim_products[list_price]),
+    dim_products[status] = "active"
+)
+
+
+-- Avg Gross Margin
+-- Average gross margin rate across products that have been sold.
+Avg Gross Margin =
+CALCULATE(
+    AVERAGE(dim_products[gross_margin_rate]),
+    NOT ISBLANK(dim_products[gross_margin_rate])
+)
+
+
+-- =======================================================================
+-- CROSS-TABLE MEASURES (use relationships between tables)
+-- =======================================================================
+
+-- Revenue per Customer
+-- Average revenue generated per purchasing customer.
+-- Uses both fct_orders and dim_customers via the relationship.
+Revenue per Customer =
+DIVIDE(
+    [Total Revenue],
+    [Purchasing Customers],
+    0
+)
+
+
+-- -----------------------------------------------------------------------
+-- 💡 LEARNING NOTE — How DAX Filter Context Works:
+--
+-- When a Power BI report has a slicer set to "customer_segment = champion",
+-- every measure recalculates automatically for just champions.
+-- [Total Revenue] becomes "Total Revenue for Champions."
+-- [Customer Count] becomes "Champion Customer Count."
+--
+-- You don't write WHERE clauses — the filter context does it.
+-- This is the fundamental power of semantic models over plain SQL reports.
+--
+-- CALCULATE() is the most important DAX function — it lets you
+-- MODIFY the filter context within a measure:
+--
+--   [Revenue MoM Growth] uses CALCULATE to compare current vs prior month.
+--   [Cancellation Rate] uses CALCULATE to filter just cancelled orders.
+--   [Avg Customer LTV] uses CALCULATE to exclude zero-LTV customers.
+-- -----------------------------------------------------------------------

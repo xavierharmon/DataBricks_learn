@@ -1,13 +1,8 @@
 -- models/staging/stg_customers.sql
 -- -----------------------------------------------------------------------
 -- STAGING MODEL: stg_customers
--- -----------------------------------------------------------------------
--- PURPOSE: Clean and standardize the raw customers table.
---
--- Key decisions made here:
---   - Normalize email to lowercase (critical for joins later!)
---   - Parse first/last name from a full_name field
---   - Categorize customer acquisition channel
+-- PLATFORM SUPPORT: Databricks + Azure Fabric
+-- Uses platform_adapter macros for split_part (not available in T-SQL)
 -- -----------------------------------------------------------------------
 
 with
@@ -18,55 +13,43 @@ source as (
 
 renamed as (
     select
-        -- Primary key
-        customer_id::string                     as customer_id,
+        cast(customer_id as varchar(50))                    as customer_id,
 
-        -- Contact info
-        -- Always lowercase emails — 'Bob@Gmail.com' and 'bob@gmail.com'
-        -- are the same customer but would appear as two rows without this!
-        lower(trim(email))                      as email,
+        -- Email — always lowercase, cross-platform trim
+        lower(trim(cast(email as varchar(255))))            as email,
 
-        -- Name handling — source has a single full_name column
-        -- We split it here for downstream flexibility
-        trim(split_part(full_name, ' ', 1))     as first_name,
-        trim(split_part(full_name, ' ', 2))     as last_name,
-        full_name,
+        -- Name splitting — uses platform_adapter macro
+        -- Databricks: split_part()   Fabric: charindex + substring
+        {{ split_first_name('full_name') }}                 as first_name,
+        {{ split_last_name('full_name') }}                  as last_name,
+        cast(full_name as varchar(255))                     as full_name,
 
         -- Location
-        city,
-        state,
-        country,
-        postal_code,
+        cast(city as varchar(100))                          as city,
+        cast(state as varchar(50))                          as state,
+        cast(country as varchar(50))                        as country,
+        cast(postal_code as varchar(20))                    as postal_code,
 
         -- Account metadata
-        created_at::timestamp                   as created_at,
-        updated_at::timestamp                   as updated_at,
+        cast(created_at as timestamp)                       as created_at,
+        cast(updated_at as timestamp)                       as updated_at,
 
-        -- Acquisition channel — normalize inconsistent raw values
-        -- Raw system has 'ORGANIC', 'organic', 'Organic Search' etc.
+        -- Acquisition channel normalization
         case
-            when lower(acquisition_channel) like '%organic%'  then 'organic_search'
-            when lower(acquisition_channel) like '%paid%'     then 'paid_search'
-            when lower(acquisition_channel) like '%social%'   then 'social_media'
-            when lower(acquisition_channel) like '%email%'    then 'email'
-            when lower(acquisition_channel) like '%referral%' then 'referral'
+            when lower(cast(acquisition_channel as varchar(100))) like '%organic%'  then 'organic_search'
+            when lower(cast(acquisition_channel as varchar(100))) like '%paid%'     then 'paid_search'
+            when lower(cast(acquisition_channel as varchar(100))) like '%social%'   then 'social_media'
+            when lower(cast(acquisition_channel as varchar(100))) like '%email%'    then 'email'
+            when lower(cast(acquisition_channel as varchar(100))) like '%referral%' then 'referral'
             else 'unknown'
-        end                                     as acquisition_channel,
+        end                                                 as acquisition_channel,
 
-        -- Is the account still active?
-        is_active::boolean                      as is_active,
+        -- Boolean — uses bool_to_bit macro (Fabric uses BIT not BOOLEAN)
+        {{ bool_to_bit('cast(is_active as boolean)') }}     as is_active,
 
-        _loaded_at::timestamp                   as _loaded_at
+        cast(_loaded_at as timestamp)                       as _loaded_at
 
     from source
 )
 
 select * from renamed
-
--- -----------------------------------------------------------------------
--- 💡 LEARNING NOTE — The CASE statement above:
--- This is "light" business logic that's acceptable in staging because it's
--- purely about CLEANING the source data, not defining business rules.
--- The rule "organic = organic_search" is about fixing the source system,
--- not defining what "a good customer" is.
--- -----------------------------------------------------------------------

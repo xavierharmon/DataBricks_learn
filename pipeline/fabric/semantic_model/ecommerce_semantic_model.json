@@ -1,0 +1,214 @@
+{
+  "_comment": "fabric/semantic_model/ecommerce_semantic_model.json",
+  "_description": [
+    "This file defines the Azure Fabric Semantic Model for the e-commerce project.",
+    "It maps directly to what you configure in the Fabric UI under:",
+    "  Workspace → Semantic Model → Model view",
+    "",
+    "HOW TO USE THIS FILE:",
+    "  Option A (Learning): Use this as a reference while manually",
+    "    configuring the semantic model in the Fabric UI.",
+    "  Option B (Advanced): Use the Fabric REST API or TMDL (Tabular Model",
+    "    Definition Language) to deploy this programmatically.",
+    "",
+    "WHAT IS A SEMANTIC MODEL IN FABRIC?",
+    "  In Azure Fabric, a Semantic Model (formerly called a Power BI Dataset)",
+    "  is a layer that sits on top of your mart tables and defines:",
+    "    - Which tables are available",
+    "    - Which columns are dimensions (for filtering/grouping)",
+    "    - Which columns are measures (aggregated numbers)",
+    "    - Relationships between tables",
+    "    - DAX measures (custom calculated metrics)",
+    "  Business users never see the raw SQL — they just see the semantic model",
+    "  in Power BI and drag fields onto their reports."
+  ],
+
+  "name": "ecommerce_analytics",
+  "description": "E-commerce analytics semantic model. Source of truth for all revenue, customer, and product reporting.",
+  "compatibility_level": 1605,
+
+  "data_source": {
+    "type": "fabric_lakehouse",
+    "connection_note": "Connect to your Fabric Lakehouse SQL endpoint. In Fabric UI: New Semantic Model → select your Lakehouse → select tables below."
+  },
+
+  "tables": [
+
+    {
+      "name": "fct_orders",
+      "description": "One row per order. Primary fact table for all order and revenue analysis.",
+      "source_table": "marts.fct_orders",
+      "grain": "One row = one order",
+
+      "columns": [
+        { "name": "order_id",             "data_type": "string",   "role": "key",       "description": "Primary key. Unique order identifier." },
+        { "name": "customer_id",          "data_type": "string",   "role": "foreign_key","description": "Links to dim_customers." },
+        { "name": "order_date",           "data_type": "date",     "role": "dimension",  "description": "Date the order was placed. Use for time-series analysis." },
+        { "name": "order_month",          "data_type": "date",     "role": "dimension",  "description": "First day of the order month. Use for monthly rollups." },
+        { "name": "order_year",           "data_type": "integer",  "role": "dimension",  "description": "Year the order was placed." },
+        { "name": "status",               "data_type": "string",   "role": "dimension",  "description": "Order status: pending, processing, shipped, delivered, cancelled, refunded." },
+        { "name": "is_revenue_order",     "data_type": "integer",  "role": "dimension",  "description": "1 = counts as revenue (delivered/shipped/processing). 0 = cancelled or refunded." },
+        { "name": "order_size_segment",   "data_type": "string",   "role": "dimension",  "description": "small (<$100), medium ($100-499), large (≥$500)." },
+        { "name": "customer_segment",     "data_type": "string",   "role": "dimension",  "description": "RFM-based segment: champion, loyal, new_customer, at_risk, churned, one_time." },
+        { "name": "acquisition_channel",  "data_type": "string",   "role": "dimension",  "description": "How the customer originally found us." },
+        { "name": "customer_state",       "data_type": "string",   "role": "dimension",  "description": "US state of the customer." },
+        { "name": "customer_country",     "data_type": "string",   "role": "dimension",  "description": "Country of the customer." },
+        { "name": "total_amount",         "data_type": "decimal",  "role": "measure_src","description": "Raw order total including shipping. Use net_revenue for P&L." },
+        { "name": "shipping_amount",      "data_type": "decimal",  "role": "measure_src","description": "Shipping charge on the order." },
+        { "name": "net_revenue",          "data_type": "decimal",  "role": "measure_src","description": "total_amount minus shipping. Primary revenue field." },
+        { "name": "item_count",           "data_type": "integer",  "role": "measure_src","description": "Number of distinct line items in the order." },
+        { "name": "total_units",          "data_type": "integer",  "role": "measure_src","description": "Total product units ordered." }
+      ],
+
+      "dax_measures": [
+        {
+          "name": "Total Revenue",
+          "expression": "CALCULATE(SUM(fct_orders[net_revenue]), fct_orders[is_revenue_order] = 1)",
+          "format_string": "$#,##0.00",
+          "description": "Net revenue from non-cancelled, non-refunded orders only. Excludes shipping."
+        },
+        {
+          "name": "Order Count",
+          "expression": "COUNTROWS(fct_orders)",
+          "format_string": "#,##0",
+          "description": "Total number of orders including all statuses."
+        },
+        {
+          "name": "Revenue Order Count",
+          "expression": "CALCULATE(COUNTROWS(fct_orders), fct_orders[is_revenue_order] = 1)",
+          "format_string": "#,##0",
+          "description": "Orders that generated revenue (excludes cancelled and refunded)."
+        },
+        {
+          "name": "Average Order Value",
+          "expression": "DIVIDE([Total Revenue], [Revenue Order Count], 0)",
+          "format_string": "$#,##0.00",
+          "description": "Average net revenue per revenue order (AOV). Key e-commerce KPI."
+        },
+        {
+          "name": "Total Units Sold",
+          "expression": "CALCULATE(SUM(fct_orders[total_units]), fct_orders[is_revenue_order] = 1)",
+          "format_string": "#,##0",
+          "description": "Total product units sold on revenue orders."
+        },
+        {
+          "name": "Cancellation Rate",
+          "expression": "DIVIDE(CALCULATE(COUNTROWS(fct_orders), fct_orders[status] = \"cancelled\"), COUNTROWS(fct_orders), 0)",
+          "format_string": "0.00%",
+          "description": "Percentage of all orders that were cancelled."
+        },
+        {
+          "name": "Revenue MoM Growth",
+          "expression": "VAR CurrentRevenue = [Total Revenue] VAR PriorRevenue = CALCULATE([Total Revenue], DATEADD(fct_orders[order_date], -1, MONTH)) RETURN DIVIDE(CurrentRevenue - PriorRevenue, PriorRevenue, 0)",
+          "format_string": "0.00%",
+          "description": "Month-over-month revenue growth rate. Requires a date filter to be meaningful."
+        }
+      ]
+    },
+
+    {
+      "name": "dim_customers",
+      "description": "One row per customer. Current state of all customer attributes and behavioral segments.",
+      "source_table": "marts.dim_customers",
+      "grain": "One row = one customer",
+
+      "columns": [
+        { "name": "customer_id",          "data_type": "string",   "role": "key",        "description": "Primary key." },
+        { "name": "email",                "data_type": "string",   "role": "dimension",  "description": "Customer email address (lowercase normalized)." },
+        { "name": "full_name",            "data_type": "string",   "role": "dimension",  "description": "Customer full name." },
+        { "name": "city",                 "data_type": "string",   "role": "dimension",  "description": "City." },
+        { "name": "state",                "data_type": "string",   "role": "dimension",  "description": "US state abbreviation." },
+        { "name": "country",              "data_type": "string",   "role": "dimension",  "description": "Country." },
+        { "name": "acquisition_channel",  "data_type": "string",   "role": "dimension",  "description": "How this customer was acquired." },
+        { "name": "customer_segment",     "data_type": "string",   "role": "dimension",  "description": "RFM segment: champion, loyal, new_customer, at_risk, churned, one_time, no_purchases." },
+        { "name": "account_tenure",       "data_type": "string",   "role": "dimension",  "description": "new, established, or long_term based on account age." },
+        { "name": "is_repeat_customer",   "data_type": "integer",  "role": "dimension",  "description": "1 = placed 2+ revenue orders." },
+        { "name": "is_high_value",        "data_type": "integer",  "role": "dimension",  "description": "1 = lifetime value >= $1,000." },
+        { "name": "lifetime_value",       "data_type": "decimal",  "role": "measure_src","description": "Total net revenue from this customer across all orders." },
+        { "name": "total_orders",         "data_type": "integer",  "role": "measure_src","description": "Total orders placed (all statuses)." },
+        { "name": "days_since_last_order","data_type": "integer",  "role": "dimension",  "description": "Days since most recent order. Used for recency analysis." }
+      ],
+
+      "dax_measures": [
+        {
+          "name": "Customer Count",
+          "expression": "COUNTROWS(dim_customers)",
+          "format_string": "#,##0",
+          "description": "Total number of customer accounts."
+        },
+        {
+          "name": "Avg Customer LTV",
+          "expression": "CALCULATE(AVERAGE(dim_customers[lifetime_value]), dim_customers[lifetime_value] > 0)",
+          "format_string": "$#,##0.00",
+          "description": "Average lifetime value across customers who have purchased."
+        },
+        {
+          "name": "Repeat Customer Rate",
+          "expression": "DIVIDE(CALCULATE(COUNTROWS(dim_customers), dim_customers[is_repeat_customer] = 1), CALCULATE(COUNTROWS(dim_customers), dim_customers[total_orders] > 0), 0)",
+          "format_string": "0.00%",
+          "description": "Percentage of purchasing customers who have bought more than once."
+        }
+      ]
+    },
+
+    {
+      "name": "dim_products",
+      "description": "One row per product SKU. Current catalog attributes and sales performance.",
+      "source_table": "marts.dim_products",
+      "grain": "One row = one product SKU",
+
+      "columns": [
+        { "name": "product_id",       "data_type": "string",   "role": "key",        "description": "Primary key." },
+        { "name": "product_name",     "data_type": "string",   "role": "dimension",  "description": "Product display name." },
+        { "name": "category",         "data_type": "string",   "role": "dimension",  "description": "Top-level product category." },
+        { "name": "subcategory",      "data_type": "string",   "role": "dimension",  "description": "Product subcategory." },
+        { "name": "status",           "data_type": "string",   "role": "dimension",  "description": "active, discontinued, or draft." },
+        { "name": "performance_tier", "data_type": "string",   "role": "dimension",  "description": "top_seller, steady_seller, slow_mover, stale, no_sales." },
+        { "name": "is_available",     "data_type": "integer",  "role": "dimension",  "description": "1 = active status AND in stock." },
+        { "name": "list_price",       "data_type": "decimal",  "role": "measure_src","description": "Published selling price." },
+        { "name": "total_revenue",    "data_type": "decimal",  "role": "measure_src","description": "Total revenue this product has generated." },
+        { "name": "gross_margin_rate","data_type": "decimal",  "role": "measure_src","description": "Gross margin rate: (revenue - COGS) / revenue." }
+      ],
+
+      "dax_measures": [
+        {
+          "name": "Product Count",
+          "expression": "COUNTROWS(dim_products)",
+          "format_string": "#,##0",
+          "description": "Total products in the catalog."
+        },
+        {
+          "name": "Avg Gross Margin",
+          "expression": "CALCULATE(AVERAGE(dim_products[gross_margin_rate]), NOT ISBLANK(dim_products[gross_margin_rate]))",
+          "format_string": "0.00%",
+          "description": "Average gross margin rate across products with sales."
+        }
+      ]
+    }
+  ],
+
+  "relationships": [
+    {
+      "name": "orders_to_customers",
+      "from_table": "fct_orders",
+      "from_column": "customer_id",
+      "to_table": "dim_customers",
+      "to_column": "customer_id",
+      "cardinality": "many_to_one",
+      "cross_filter_direction": "single",
+      "is_active": true,
+      "description": "Many orders belong to one customer. Standard fact-to-dimension relationship."
+    }
+  ],
+
+  "setup_instructions": {
+    "step_1": "In Fabric workspace, open your Lakehouse and confirm marts.fct_orders, marts.dim_customers, and marts.dim_products exist (run dbt first).",
+    "step_2": "Click 'New semantic model' in the Fabric workspace.",
+    "step_3": "Select your Lakehouse as the data source.",
+    "step_4": "Check the boxes for: fct_orders, dim_customers, dim_products.",
+    "step_5": "Click 'Confirm'. Fabric creates the semantic model.",
+    "step_6": "Open the semantic model → Model view. Create the relationship: fct_orders[customer_id] → dim_customers[customer_id].",
+    "step_7": "Click 'New measure' for each DAX measure defined above under each table.",
+    "step_8": "Save. Your semantic model is ready for Power BI reports."
+  }
+}

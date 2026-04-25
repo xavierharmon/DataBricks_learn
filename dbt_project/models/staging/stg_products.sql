@@ -1,7 +1,5 @@
 -- models/staging/stg_products.sql
--- -----------------------------------------------------------------------
--- STAGING MODEL: stg_products
--- -----------------------------------------------------------------------
+-- PLATFORM SUPPORT: Databricks + Azure Fabric
 
 with
 
@@ -11,26 +9,18 @@ source as (
 
 renamed as (
     select
-        product_id::string              as product_id,
-        product_name,
-        lower(trim(category))           as category,
-        lower(trim(subcategory))        as subcategory,
-        sku,
-
-        -- Price — always decimal for money
-        price::decimal(18, 2)           as price,
-        cost::decimal(18, 2)            as cost,
-
-        -- Inventory
-        stock_quantity::int             as stock_quantity,
-
-        -- Product status
-        lower(trim(status))             as status,   -- 'active', 'discontinued', 'draft'
-
-        created_at::timestamp           as created_at,
-        updated_at::timestamp           as updated_at,
-        _loaded_at::timestamp           as _loaded_at
-
+        cast(product_id as varchar(50))         as product_id,
+        cast(product_name as varchar(255))      as product_name,
+        lower(trim(cast(category as varchar(100))))     as category,
+        lower(trim(cast(subcategory as varchar(100))))  as subcategory,
+        cast(sku as varchar(50))                as sku,
+        cast(price as decimal(18,2))            as price,
+        cast(cost as decimal(18,2))             as cost,
+        cast(stock_quantity as int)             as stock_quantity,
+        lower(trim(cast(status as varchar(50)))) as status,
+        cast(created_at as timestamp)           as created_at,
+        cast(updated_at as timestamp)           as updated_at,
+        cast(_loaded_at as timestamp)           as _loaded_at
     from source
 )
 

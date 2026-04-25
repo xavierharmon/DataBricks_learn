@@ -1,19 +1,5 @@
 -- models/marts/customers/dim_customers.sql
--- -----------------------------------------------------------------------
--- MART MODEL: dim_customers
--- -----------------------------------------------------------------------
--- PURPOSE: The CUSTOMERS DIMENSION TABLE.
---
--- WHAT IS A DIMENSION TABLE?
---   A dimension table describes the "things" in your business — WHO, WHAT, WHERE.
---   It answers descriptive questions: Who is this customer? What is this product?
---   Dimension tables are joined to fact tables in BI tools.
---
--- GRAIN: one row = one customer (current state)
---
--- This model is the SOURCE OF TRUTH for customer attributes in your BI layer.
--- Power BI / Azure Fabric will join fct_orders → dim_customers on customer_id.
--- -----------------------------------------------------------------------
+-- PLATFORM SUPPORT: Databricks + Azure Fabric
 
 with
 
@@ -23,44 +9,31 @@ customer_orders as (
 
 final as (
     select
-        -- ---------------------------------------------------------------
-        -- KEYS
-        -- ---------------------------------------------------------------
+        -- Keys
         customer_id,
+        {{ dbt_utils.generate_surrogate_key(['customer_id']) }} as customer_sk,
 
-        -- Surrogate key (used in star schema joins)
-        {{ dbt_utils.generate_surrogate_key(['customer_id']) }}
-            as customer_sk,
-
-        -- ---------------------------------------------------------------
-        -- CUSTOMER IDENTITY
-        -- ---------------------------------------------------------------
+        -- Identity
         email,
         first_name,
         last_name,
-        first_name || ' ' || last_name  as full_name,
+        concat(first_name , ' ' , last_name as varchar(255))  as full_name,
+        -- NOTE: String concat uses + on both Databricks and Fabric (|| also works on Databricks)
+        -- Using + here for Fabric compatibility
 
-        -- ---------------------------------------------------------------
-        -- LOCATION
-        -- ---------------------------------------------------------------
+        -- Location
         city,
         state,
         country,
 
-        -- ---------------------------------------------------------------
-        -- ACQUISITION
-        -- ---------------------------------------------------------------
+        -- Acquisition
         acquisition_channel,
         account_created_at,
-        is_active,
+        is_active,                      -- BIT on Fabric, boolean on Databricks — both work
 
-        -- ---------------------------------------------------------------
-        -- BEHAVIORAL ATTRIBUTES
-        -- These are calculated from orders but "live" on the dimension
-        -- because they describe WHO the customer IS, not what happened
-        -- ---------------------------------------------------------------
+        -- Behavioral attributes
         customer_segment,
-        is_repeat_customer,
+        is_repeat_customer,             -- 1/0 integer
         total_orders,
         revenue_orders,
         lifetime_value,
@@ -70,29 +43,20 @@ final as (
         days_since_last_order,
         customer_lifespan_days,
 
-        -- ---------------------------------------------------------------
-        -- DERIVED CLASSIFICATIONS
-        -- ---------------------------------------------------------------
+        -- Derived flags — using 1/0 for cross-platform boolean compatibility
+        case when total_orders > 0 then 1 else 0 end        as has_purchased,
+        case when lifetime_value >= 1000 then 1 else 0 end  as is_high_value,
 
-        -- Has this customer ever placed an order?
-        total_orders > 0                as has_purchased,
-
-        -- High value customer flag (top LTV threshold)
-        lifetime_value >= 1000          as is_high_value,
-
-        -- Tenure bucket
+        -- Account tenure bucket
         case
-            when account_created_at >= dateadd(day, -30, current_date())
-                then 'new'              -- Account < 30 days old
-            when account_created_at >= dateadd(day, -365, current_date())
-                then 'established'      -- 30 days to 1 year
-            else 'long_term'            -- Over a year
-        end                             as account_tenure,
+            when account_created_at >= {{ dateadd_fn('day', -30, current_date_fn()) }}
+                then 'new'
+            when account_created_at >= {{ dateadd_fn('day', -365, current_date_fn()) }}
+                then 'established'
+            else 'long_term'
+        end                                                  as account_tenure,
 
-        -- ---------------------------------------------------------------
-        -- METADATA
-        -- ---------------------------------------------------------------
-        current_timestamp()             as dbt_updated_at
+        {{ current_timestamp_fn() }}                         as dbt_updated_at
 
     from customer_orders
 )
