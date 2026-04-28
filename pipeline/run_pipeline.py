@@ -25,6 +25,9 @@ from pipeline.layers.base_layer import ModelMetadata, Materialization, LayerType
 from pipeline.layers.layers import StagingLayer, IntermediateLayer, MartLayer
 from pipeline.domains.orders_domain import OrdersDomain
 from pipeline.domains.domain_implementations import CustomersDomain, ProductsDomain
+from pipeline.domains.supply_chain_domains import (
+    SuppliersDomain, ManufacturersDomain, InventoryDomain, MarginDomain
+)
 from pipeline.semantic.semantic_model import EcommerceSemanticModel
 
 
@@ -178,7 +181,10 @@ def setup_domains():
     print("DOMAIN INITIALIZATION")
     print("=" * 60)
 
-    domains = [OrdersDomain(), CustomersDomain(), ProductsDomain()]
+    domains = [
+        OrdersDomain(), CustomersDomain(), ProductsDomain(),
+        SuppliersDomain(), ManufacturersDomain(), InventoryDomain(), MarginDomain()
+    ]
 
     for domain in domains:
         domain.initialize()

@@ -61,7 +61,6 @@
 -- -----------------------------------------------------------------------
 {% macro date_trunc_fn(period, date_col) %}
   {% if target.type == 'fabric' or target.type == 'sqlserver' %}
-    {# Fabric/T-SQL Logic #}
     {% if period == 'month' %}
       dateadd(month, datediff(month, 0, {{ date_col }}), 0)
     {% elif period == 'week' %}
@@ -72,7 +71,6 @@
       cast({{ date_col }} as date)
     {% endif %}
   {% else %}
-    {# Databricks/Spark Logic #}
     date_trunc('{{ period }}', {{ date_col }})
   {% endif %}
 {% endmacro %}

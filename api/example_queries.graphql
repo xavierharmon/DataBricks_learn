@@ -1,0 +1,246 @@
+# api/example_queries.graphql
+# -----------------------------------------------------------------------
+# EXAMPLE GRAPHQL QUERIES
+# -----------------------------------------------------------------------
+# Copy any of these into the GraphQL Playground at:
+#   http://localhost:8000/graphql
+#
+# HOW GRAPHQL QUERIES WORK:
+#   - You ask for exactly the fields you want (no over-fetching)
+#   - The server returns exactly that shape — nothing more
+#   - Fields use camelCase in GraphQL (orderId, netRevenue)
+#     even though the Python/SQL uses snake_case (order_id, net_revenue)
+#     Strawberry handles the conversion automatically
+# -----------------------------------------------------------------------
+
+
+# -----------------------------------------------------------------------
+# HEALTH CHECK — always start here to confirm the API is running
+# -----------------------------------------------------------------------
+query HealthCheck {
+  health
+}
+
+
+# -----------------------------------------------------------------------
+# ORDER SUMMARY — dashboard KPI cards
+# -----------------------------------------------------------------------
+query OrderKPIs {
+  orderSummary {
+    totalOrders
+    revenueOrders
+    totalRevenue
+    avgOrderValue
+    totalUnitsSold
+    cancellationRate
+  }
+}
+
+
+# -----------------------------------------------------------------------
+# ORDERS — basic list
+# -----------------------------------------------------------------------
+query RecentOrders {
+  orders(pagination: { limit: 10, offset: 0 }) {
+    orderId
+    orderDate
+    status
+    netRevenue
+    orderSizeSegment
+    customerSegment
+  }
+}
+
+
+# -----------------------------------------------------------------------
+# ORDERS — filtered by status and minimum revenue
+# -----------------------------------------------------------------------
+query LargeDeliveredOrders {
+  orders(
+    filters: { status: "delivered", minRevenue: 200.0 }
+    pagination: { limit: 20 }
+  ) {
+    orderId
+    orderDate
+    netRevenue
+    itemCount
+    totalUnits
+    customerSegment
+    acquisitionChannel
+  }
+}
+
+
+# -----------------------------------------------------------------------
+# ORDERS — filtered by customer segment
+# -----------------------------------------------------------------------
+query ChampionCustomerOrders {
+  orders(
+    filters: { customerSegment: "champion", isRevenueOrder: 1 }
+    pagination: { limit: 50 }
+  ) {
+    orderId
+    orderDate
+    netRevenue
+    customerCity
+    customerState
+  }
+}
+
+
+# -----------------------------------------------------------------------
+# REVENUE BREAKDOWN — by customer segment
+# Great for a bar chart in a BI dashboard
+# -----------------------------------------------------------------------
+query RevenueBySegment {
+  revenueBy(dimension: "customer_segment") {
+    dimensionValue
+    orderCount
+    totalRevenue
+    avgOrderValue
+  }
+}
+
+
+# -----------------------------------------------------------------------
+# REVENUE BREAKDOWN — by acquisition channel
+# -----------------------------------------------------------------------
+query RevenueByChannel {
+  revenueBy(dimension: "acquisition_channel") {
+    dimensionValue
+    totalRevenue
+    orderCount
+    avgOrderValue
+  }
+}
+
+
+# -----------------------------------------------------------------------
+# REVENUE BREAKDOWN — by year
+# -----------------------------------------------------------------------
+query RevenueByYear {
+  revenueBy(dimension: "order_year") {
+    dimensionValue
+    totalRevenue
+    orderCount
+  }
+}
+
+
+# -----------------------------------------------------------------------
+# CUSTOMERS — high value champions
+# -----------------------------------------------------------------------
+query HighValueChampions {
+  customers(
+    filters: { customerSegment: "champion", isHighValue: 1 }
+    pagination: { limit: 20 }
+  ) {
+    customerId
+    email
+    fullName
+    lifetimeValue
+    totalOrders
+    daysSinceLastOrder
+    acquisitionChannel
+  }
+}
+
+
+# -----------------------------------------------------------------------
+# CUSTOMERS — at-risk customers (haven't bought in 91-180 days)
+# Use this for a re-engagement campaign target list
+# -----------------------------------------------------------------------
+query AtRiskCustomers {
+  customers(
+    filters: { customerSegment: "at_risk" }
+    pagination: { limit: 100 }
+  ) {
+    customerId
+    email
+    fullName
+    lifetimeValue
+    daysSinceLastOrder
+    mostRecentOrderDate
+  }
+}
+
+
+# -----------------------------------------------------------------------
+# CUSTOMER SEGMENTS — overview of all segments
+# -----------------------------------------------------------------------
+query CustomerSegmentOverview {
+  customerSegments {
+    segment
+    customerCount
+    avgLifetimeValue
+    repeatCustomerRate
+  }
+}
+
+
+# -----------------------------------------------------------------------
+# PRODUCTS — top sellers
+# -----------------------------------------------------------------------
+query TopSellingProducts {
+  products(
+    filters: { performanceTier: "top_seller" }
+    pagination: { limit: 20 }
+  ) {
+    productId
+    productName
+    category
+    totalUnitsSold
+    totalRevenue
+    grossMarginRate
+    listPrice
+  }
+}
+
+
+# -----------------------------------------------------------------------
+# PRODUCTS — available electronics under $100
+# -----------------------------------------------------------------------
+query AffordableElectronics {
+  products(
+    filters: { category: "electronics", isAvailable: 1, maxPrice: 100.0 }
+  ) {
+    productName
+    subcategory
+    listPrice
+    stockQuantity
+    performanceTier
+  }
+}
+
+
+# -----------------------------------------------------------------------
+# COMBINED QUERY — fetch multiple things in one request
+# This is one of GraphQL's key advantages over REST:
+# one round-trip gets everything a dashboard needs
+# -----------------------------------------------------------------------
+query DashboardData {
+  orderSummary {
+    totalRevenue
+    avgOrderValue
+    revenueOrders
+    cancellationRate
+  }
+
+  revenueBy(dimension: "customer_segment") {
+    dimensionValue
+    totalRevenue
+    orderCount
+  }
+
+  customerSegments {
+    segment
+    customerCount
+    avgLifetimeValue
+  }
+
+  products(filters: { performanceTier: "top_seller" }, pagination: { limit: 5 }) {
+    productName
+    totalRevenue
+    grossMarginRate
+  }
+}

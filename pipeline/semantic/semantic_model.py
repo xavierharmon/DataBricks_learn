@@ -324,3 +324,4 @@ class EcommerceSemanticModel:
                 "relationships": self._relationships
             }
         }
+

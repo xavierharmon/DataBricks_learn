@@ -263,3 +263,487 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# =============================================================================
+# SUPPLY CHAIN DATA GENERATORS
+# Added to extend the base e-commerce dataset with manufacturing/supplier data
+# =============================================================================
+
+def generate_raw_materials(n: int = 30) -> list:
+    """
+    Generate raw materials that go into finished products.
+    Examples: fabric, plastic pellets, electronic components, cardboard.
+    """
+    material_types = [
+        ("Cotton Fabric",        "textile",    "meters",    2.50,  8.00),
+        ("Polyester Fabric",     "textile",    "meters",    1.20,  4.50),
+        ("ABS Plastic Pellets",  "polymer",    "kg",        1.80,  3.20),
+        ("Silicone Rubber",      "polymer",    "kg",        4.50, 12.00),
+        ("Copper Wire",          "metal",      "meters",    0.80,  2.10),
+        ("Aluminum Sheet",       "metal",      "kg",        3.20,  6.80),
+        ("Stainless Steel",      "metal",      "kg",        2.90,  5.40),
+        ("Cardboard Sheet",      "packaging",  "units",     0.15,  0.45),
+        ("Bubble Wrap Roll",     "packaging",  "meters",    0.40,  1.20),
+        ("Foam Padding",         "packaging",  "kg",        1.10,  3.30),
+        ("Cotton Thread",        "textile",    "spools",    0.90,  2.80),
+        ("Elastic Band",         "textile",    "meters",    0.20,  0.65),
+        ("Rubber Sole Material", "polymer",    "kg",        3.80,  9.50),
+        ("PP Plastic Sheet",     "polymer",    "kg",        1.60,  3.90),
+        ("Tempered Glass",       "glass",      "units",     4.20, 11.00),
+        ("PCB Components",       "electronic", "units",     8.50, 24.00),
+        ("Lithium Battery Cell", "electronic", "units",    12.00, 28.00),
+        ("LED Components",       "electronic", "units",     2.30,  7.50),
+        ("Nylon Fiber",          "textile",    "kg",        3.10,  7.20),
+        ("Paper Pulp",           "cellulose",  "kg",        0.60,  1.80),
+        ("Dye Concentrate",      "chemical",   "liters",    5.50, 14.00),
+        ("Adhesive Resin",       "chemical",   "liters",    3.20,  8.40),
+        ("Zipper Components",    "hardware",   "units",     0.45,  1.30),
+        ("Metal Buckles",        "hardware",   "units",     0.30,  0.95),
+        ("Velcro Strip",         "hardware",   "meters",    0.55,  1.60),
+        ("Ink Cartridge",        "chemical",   "units",     6.80, 18.00),
+        ("Soy Wax",              "natural",    "kg",        2.20,  5.50),
+        ("Essential Oils",       "natural",    "ml",        8.00, 22.00),
+        ("Ceramic Clay",         "natural",    "kg",        1.40,  3.70),
+        ("Bamboo Fiber",         "natural",    "kg",        2.80,  6.90),
+    ]
+    materials = []
+    for i, (name, category, unit, min_cost, max_cost) in enumerate(material_types[:n], 1):
+        materials.append({
+            "material_id":       f"MAT-{i:04d}",
+            "material_name":     name,
+            "material_category": category,
+            "unit_of_measure":   unit,
+            "standard_cost":     round(random.uniform(min_cost, max_cost), 2),
+            "reorder_point":     random.randint(50, 500),
+            "current_stock":     random.randint(0, 2000),
+            "lead_time_days":    random.randint(3, 45),
+            "created_at":        fake.date_time_between(start_date="-3y", end_date="-1y").isoformat(),
+            "_loaded_at":        datetime.now().isoformat(),
+        })
+    return materials
+
+
+def generate_suppliers(n: int = 12) -> list:
+    """
+    Generate supplier companies. Each supplier provides specific materials.
+    Mix of domestic and international to enable lead time analysis.
+    """
+    suppliers_data = [
+        ("TechFab Industries",      "US",  "CA", "domestic",      8,  15, 0.96),
+        ("GlobalWeave Co",          "CN",  None, "international", 25,  45, 0.94),
+        ("PolyMat Solutions",       "US",  "TX", "domestic",      5,  12, 0.98),
+        ("EuroComponent GmbH",      "DE",  None, "international", 18,  30, 0.97),
+        ("PacificRaw Materials",    "VN",  None, "international", 30,  55, 0.91),
+        ("NaturaSupply Corp",       "US",  "OR", "domestic",     10,  20, 0.95),
+        ("MetalWorks International","KR",  None, "international", 20,  38, 0.93),
+        ("PackRight Solutions",     "US",  "OH", "domestic",      4,   9, 0.99),
+        ("ChemSource Ltd",          "IN",  None, "international", 22,  40, 0.92),
+        ("ElectroParts Asia",       "TW",  None, "international", 15,  28, 0.96),
+        ("FiberFirst Textiles",     "BD",  None, "international", 28,  50, 0.90),
+        ("AlpineNatural Goods",     "CH",  None, "international", 12,  22, 0.98),
+    ]
+    suppliers = []
+    for i, (name, country, state, s_type, min_lt, max_lt, fill_rate) in \
+            enumerate(suppliers_data[:n], 1):
+        suppliers.append({
+            "supplier_id":              f"SUP-{i:04d}",
+            "supplier_name":            name,
+            "country":                  country,
+            "state":                    state,
+            "supplier_type":            s_type,
+            "avg_lead_time_days":       random.randint(min_lt, max_lt),
+            "quoted_fill_rate":         fill_rate,
+            "payment_terms_days":       random.choice([15, 30, 45, 60]),
+            "is_preferred":             random.random() > 0.4,
+            "quality_rating":           round(random.uniform(3.5, 5.0), 1),
+            "onboarded_at":             fake.date_time_between(
+                                            start_date="-4y", end_date="-1y").isoformat(),
+            "_loaded_at":               datetime.now().isoformat(),
+        })
+    return suppliers
+
+
+def generate_supplier_materials(suppliers: list, materials: list) -> list:
+    """
+    Junction table: which supplier provides which materials, at what price.
+    A material can have multiple suppliers (enables cheapest-source analysis).
+    """
+    records = []
+    rec_id = 1
+    supplier_ids = [s["supplier_id"] for s in suppliers]
+
+    for mat in materials:
+        # Each material gets 1-3 suppliers
+        n_suppliers = random.randint(1, 3)
+        chosen = random.sample(supplier_ids, min(n_suppliers, len(supplier_ids)))
+        base_cost = mat["standard_cost"]
+
+        for sup_id in chosen:
+            # Each supplier quotes slightly different prices
+            variance = random.uniform(-0.15, 0.25)
+            quoted_price = round(base_cost * (1 + variance), 2)
+            records.append({
+                "supplier_material_id": f"SM-{rec_id:05d}",
+                "supplier_id":          sup_id,
+                "material_id":          mat["material_id"],
+                "quoted_unit_price":    quoted_price,
+                "min_order_quantity":   random.choice([10, 25, 50, 100, 250, 500]),
+                "lead_time_days":       random.randint(3, 55),
+                "is_primary_supplier":  chosen.index(sup_id) == 0,
+                "contract_start_date":  fake.date_between(
+                                            start_date="-2y", end_date="-3m").isoformat(),
+                "contract_end_date":    fake.date_between(
+                                            start_date="today", end_date="+1y").isoformat(),
+                "_loaded_at":           datetime.now().isoformat(),
+            })
+            rec_id += 1
+    return records
+
+
+def generate_manufacturers(n: int = 8) -> list:
+    """
+    Generate manufacturer companies. They take raw materials and produce
+    finished goods (our products).
+    """
+    mfr_data = [
+        ("PrecisionMake Co",     "US", "MI", 85, 95, 200),
+        ("AsiaFab Solutions",    "CN", None, 80, 92, 500),
+        ("EuroQuality GmbH",     "DE", None, 90, 98, 150),
+        ("NorthTex Manufacturing","US","NC", 82, 94, 300),
+        ("VietProd Industries",  "VN", None, 78, 91, 400),
+        ("TechAssemble Ltd",     "TW", None, 88, 96, 250),
+        ("MexicoMfg SA",         "MX", None, 83, 93, 350),
+        ("DomesticCraft Inc",    "US", "WI", 87, 97, 100),
+    ]
+    manufacturers = []
+    for i, (name, country, state, min_yield, max_yield, capacity) in \
+            enumerate(mfr_data[:n], 1):
+        manufacturers.append({
+            "manufacturer_id":          f"MFR-{i:04d}",
+            "manufacturer_name":        name,
+            "country":                  country,
+            "state":                    state,
+            "avg_yield_rate":           round(random.uniform(min_yield, max_yield) / 100, 4),
+            "production_capacity_units": capacity,  # daily capacity
+            "lead_time_days":           random.randint(7, max(8, min(45, capacity))),  # manufacturing lead time
+            "quality_certification":    random.choice(
+                                            ["ISO9001", "ISO9001", "ISO14001",
+                                             "ISO9001+14001", "none"]),
+            "defect_rate":              round(random.uniform(0.005, 0.04), 4),
+            "cost_per_unit_labor":      round(random.uniform(1.50, 18.00), 2),
+            "onboarded_at":             fake.date_time_between(
+                                            start_date="-4y", end_date="-1y").isoformat(),
+            "_loaded_at":               datetime.now().isoformat(),
+        })
+    return manufacturers
+
+
+def generate_purchase_orders(suppliers: list, materials: list,
+                              supplier_materials: list, n: int = 300) -> tuple:
+    """
+    Generate purchase orders sent to suppliers for raw materials.
+    Returns (purchase_orders, purchase_order_items).
+    """
+    pos, po_items = [], []
+    supplier_ids = [s["supplier_id"] for s in suppliers]
+
+    # Build supplier→material lookup
+    sm_lookup = {}
+    for sm in supplier_materials:
+        sm_lookup.setdefault(sm["supplier_id"], []).append(sm)
+
+    po_statuses = ["submitted", "acknowledged", "shipped", "received",
+                   "received", "received", "partially_received", "cancelled"]
+
+    for i in range(1, n + 1):
+        sup_id      = random.choice(supplier_ids)
+        order_date  = fake.date_between(start_date="-2y", end_date="-7d")
+        status      = random.choice(po_statuses)
+        sup_mats    = sm_lookup.get(sup_id, [])
+        if not sup_mats:
+            continue
+
+        # Expected delivery based on supplier lead time
+        supplier    = next(s for s in suppliers if s["supplier_id"] == sup_id)
+        exp_days    = supplier["avg_lead_time_days"] + random.randint(-3, 5)
+        exp_deliver = order_date + timedelta(days=max(1, exp_days))
+
+        # Actual delivery for received orders
+        actual_deliver = None
+        if status in ("received", "partially_received"):
+            delay = random.choice([-2, -1, 0, 0, 1, 2, 3, 5, 7])
+            actual_deliver = (exp_deliver + timedelta(days=delay)).isoformat()
+
+        pos.append({
+            "purchase_order_id":        f"PO-{i:06d}",
+            "supplier_id":              sup_id,
+            "order_date":               order_date.isoformat(),
+            "expected_delivery_date":   exp_deliver.isoformat(),
+            "actual_delivery_date":     actual_deliver,
+            "status":                   status,
+            "currency":                 "USD",
+            "notes":                    None,
+            "_loaded_at":               datetime.now().isoformat(),
+        })
+
+        # 1-5 line items per PO
+        chosen_mats = random.sample(sup_mats, min(random.randint(1, 5), len(sup_mats)))
+        for j, sm in enumerate(chosen_mats, 1):
+            qty_ordered  = random.randint(50, 1000)
+            qty_received = None
+            if status == "received":
+                # Sometimes receive slightly less than ordered (fill rate)
+                fill        = random.uniform(0.88, 1.0)
+                qty_received = int(qty_ordered * fill)
+            elif status == "partially_received":
+                qty_received = int(qty_ordered * random.uniform(0.4, 0.75))
+
+            po_items.append({
+                "po_item_id":         f"POI-{i:06d}-{j:02d}",
+                "purchase_order_id":  f"PO-{i:06d}",
+                "material_id":        sm["material_id"],
+                "qty_ordered":        qty_ordered,
+                "qty_received":       qty_received,
+                "unit_price":         sm["quoted_unit_price"],
+                "total_cost":         round(qty_ordered * sm["quoted_unit_price"], 2),
+                "_loaded_at":         datetime.now().isoformat(),
+            })
+
+    return pos, po_items
+
+
+def generate_production_runs(manufacturers: list, products: list,
+                              materials: list, n: int = 200) -> tuple:
+    """
+    Generate production runs — batches of finished goods manufactured.
+    Returns (production_runs, production_run_inputs).
+    """
+    runs, inputs = [], []
+    mfr_ids  = [m["manufacturer_id"] for m in manufacturers]
+    prod_ids = [p["product_id"]       for p in products]
+    mat_ids  = [m["material_id"]      for m in materials]
+
+    statuses = ["planned", "in_progress", "completed",
+                "completed", "completed", "completed", "cancelled"]
+
+    for i in range(1, n + 1):
+        mfr        = random.choice(manufacturers)
+        prod_id    = random.choice(prod_ids)
+        start_date = fake.date_between(start_date="-18M", end_date="-7d")
+        status     = random.choice(statuses)
+
+        planned_qty = random.randint(50, 500)
+        actual_qty  = None
+        end_date    = None
+
+        if status == "completed":
+            yield_rate  = mfr["avg_yield_rate"] + random.uniform(-0.05, 0.05)
+            actual_qty  = int(planned_qty * max(0.7, min(1.0, yield_rate)))
+            duration    = random.randint(2, 21)
+            end_date    = (start_date + timedelta(days=duration)).isoformat()
+        elif status == "cancelled":
+            actual_qty = 0
+
+        # Cost per unit = labor + overhead
+        labor_cost   = mfr["cost_per_unit_labor"]
+        overhead_pct = random.uniform(0.15, 0.35)
+        cost_per_unit = round(labor_cost * (1 + overhead_pct), 2)
+
+        runs.append({
+            "production_run_id":    f"PRN-{i:05d}",
+            "manufacturer_id":      mfr["manufacturer_id"],
+            "product_id":           prod_id,
+            "planned_quantity":     planned_qty,
+            "actual_quantity":      actual_qty,
+            "planned_start_date":   start_date.isoformat(),
+            "actual_end_date":      end_date,
+            "status":               status,
+            "cost_per_unit":        cost_per_unit,
+            "defects_found":        int((actual_qty or 0) * mfr["defect_rate"]
+                                        * random.uniform(0.5, 1.5))
+                                    if actual_qty else 0,
+            "quality_passed":       status == "completed",
+            "_loaded_at":           datetime.now().isoformat(),
+        })
+
+        # 2-4 raw material inputs per production run
+        chosen_mats = random.sample(mat_ids, min(random.randint(2, 4), len(mat_ids)))
+        for mat_id in chosen_mats:
+            mat = next(m for m in materials if m["material_id"] == mat_id)
+            qty_used = round(random.uniform(0.5, 20.0) * (planned_qty / 100), 2)
+            inputs.append({
+                "run_input_id":       f"RNI-{i:05d}-{chosen_mats.index(mat_id)+1:02d}",
+                "production_run_id":  f"PRN-{i:05d}",
+                "material_id":        mat_id,
+                "qty_used":           qty_used,
+                "unit_cost":          mat["standard_cost"],
+                "total_material_cost":round(qty_used * mat["standard_cost"], 2),
+                "_loaded_at":         datetime.now().isoformat(),
+            })
+
+    return runs, inputs
+
+
+def generate_inventory_movements(products: list, production_runs: list,
+                                  orders: list) -> list:
+    """
+    Generate inventory movement records — every time stock changes.
+    Movement types:
+      production_receipt  — stock added from a completed production run
+      sale                — stock removed by a customer order
+      adjustment          — manual stock correction
+      return              — stock added from a customer return
+      damaged_write_off   — stock removed due to damage/expiry
+    """
+    movements = []
+    mov_id    = 1
+    prod_ids  = {p["product_id"]: p for p in products}
+
+    # Production receipts — stock in from completed runs
+    for run in production_runs:
+        if run["status"] == "completed" and run["actual_quantity"]:
+            movements.append({
+                "movement_id":        f"INV-{mov_id:07d}",
+                "product_id":         run["product_id"],
+                "movement_type":      "production_receipt",
+                "quantity_change":    run["actual_quantity"],
+                "reference_id":       run["production_run_id"],
+                "movement_date":      run["actual_end_date"],
+                "unit_cost":          run["cost_per_unit"],
+                "notes":              f"Receipt from production run {run['production_run_id']}",
+                "_loaded_at":         datetime.now().isoformat(),
+            })
+            mov_id += 1
+
+    # Sales — stock out from customer orders
+    delivered_orders = [o for o in orders
+                        if o["status"] in ("delivered", "shipped", "processing")]
+    for order in random.sample(delivered_orders,
+                                min(len(delivered_orders), 800)):
+        prod_id = random.choice(list(prod_ids.keys()))
+        prod    = prod_ids[prod_id]
+        qty     = random.randint(1, 5)
+        movements.append({
+            "movement_id":    f"INV-{mov_id:07d}",
+            "product_id":     prod_id,
+            "movement_type":  "sale",
+            "quantity_change": -qty,
+            "reference_id":   order["order_id"],
+            "movement_date":  order["order_date"],
+            "unit_cost":      round(float(prod.get("cost", 10.0)), 2),
+            "notes":          f"Sale from order {order['order_id']}",
+            "_loaded_at":     datetime.now().isoformat(),
+        })
+        mov_id += 1
+
+    # Random adjustments, returns, and write-offs
+    adj_types = [
+        ("adjustment",       0.5,  -50,  50,  "Cycle count adjustment"),
+        ("return",           1.0,    1,   5,  "Customer return"),
+        ("damaged_write_off",-1.0,  -20, -1,  "Damaged goods write-off"),
+    ]
+    for _ in range(120):
+        adj_type, sign_mult, min_q, max_q, note = random.choice(adj_types)
+        prod_id = random.choice(list(prod_ids.keys()))
+        qty     = random.randint(min(abs(min_q), abs(max_q)), max(abs(min_q), abs(max_q)))
+        qty     = qty if min_q >= 0 else -qty
+        movements.append({
+            "movement_id":    f"INV-{mov_id:07d}",
+            "product_id":     prod_id,
+            "movement_type":  adj_type,
+            "quantity_change": qty,
+            "reference_id":   None,
+            "movement_date":  fake.date_between(
+                                  start_date="-18M", end_date="today").isoformat(),
+            "unit_cost":      round(float(prod_ids[prod_id].get("cost", 10.0)), 2),
+            "notes":          note,
+            "_loaded_at":     datetime.now().isoformat(),
+        })
+        mov_id += 1
+
+    return movements
+
+
+def main_supply_chain():
+    """Generate and save all supply chain CSV files."""
+    import os
+    print("\n🏭 Generating supply chain data...\n")
+    os.makedirs("data/bronze", exist_ok=True)
+
+    # Load existing orders for inventory movements
+    import csv
+    orders = []
+    orders_path = "data/bronze/orders.csv"
+    if os.path.exists(orders_path):
+        with open(orders_path) as f:
+            orders = list(csv.DictReader(f))
+    else:
+        print("  ⚠️  orders.csv not found — run generate_sample_data.py first")
+        return
+
+    # Load existing products for production/inventory linkage
+    products_raw = []
+    products_path = "data/bronze/products.csv"
+    if os.path.exists(products_path):
+        with open(products_path) as f:
+            products_raw = list(csv.DictReader(f))
+    else:
+        print("  ⚠️  products.csv not found — run generate_sample_data.py first")
+        return
+
+    print("  🧱 Generating raw materials...")
+    materials    = generate_raw_materials(30)
+
+    print("  🏢 Generating suppliers...")
+    suppliers    = generate_suppliers(12)
+
+    print("  🔗 Generating supplier-material relationships...")
+    sup_mats     = generate_supplier_materials(suppliers, materials)
+
+    print("  🏭 Generating manufacturers...")
+    manufacturers = generate_manufacturers(8)
+
+    print("  📋 Generating purchase orders...")
+    pos, po_items = generate_purchase_orders(suppliers, materials, sup_mats, 300)
+
+    print("  ⚙️  Generating production runs...")
+    runs, run_inputs = generate_production_runs(
+        manufacturers, products_raw, materials, 200)
+
+    print("  📦 Generating inventory movements...")
+    movements    = generate_inventory_movements(products_raw, runs, orders)
+
+    # Write all files
+    datasets = {
+        "raw_materials":           materials,
+        "suppliers":               suppliers,
+        "supplier_materials":      sup_mats,
+        "manufacturers":           manufacturers,
+        "purchase_orders":         pos,
+        "purchase_order_items":    po_items,
+        "production_runs":         runs,
+        "production_run_inputs":   run_inputs,
+        "inventory_movements":     movements,
+    }
+
+    for name, data in datasets.items():
+        if not data:
+            print(f"  ⚠️  {name}: no data generated (skipping)")
+            continue
+        filepath = f"data/bronze/{name}.csv"
+        with open(filepath, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=data[0].keys())
+            writer.writeheader()
+            writer.writerows(data)
+        print(f"  ✅ {name}: {len(data):,} rows → {filepath}")
+
+    print(f"\n✨ Supply chain data generated!")
+    print("  Upload these CSVs to Databricks bronze_ecommerce schema:")
+    for name in datasets:
+        print(f"    • {name}.csv")
+
+
+if __name__ == "__main__":
+    main()
+    main_supply_chain()

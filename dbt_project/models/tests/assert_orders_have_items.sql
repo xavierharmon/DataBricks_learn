@@ -25,7 +25,7 @@ left join {{ ref('stg_order_items') }} oi
     on o.order_id = oi.order_id
 
 where
-    o.is_revenue_order = 1       -- Only check revenue orders
+    o.is_revenue_order = true       -- Only check revenue orders
     and oi.order_item_id is null    -- No matching items found
 
 -- If this query returns rows, those orders have missing item data.

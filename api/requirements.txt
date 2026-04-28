@@ -1,0 +1,25 @@
+# api/requirements.txt
+# -----------------------------------------------------------------------
+# GraphQL API dependencies
+# Install with: pip install -r api/requirements.txt
+# -----------------------------------------------------------------------
+
+# GraphQL framework — Python-first, type-hint driven
+strawberry-graphql[fastapi]==0.235.0
+
+# Web server that hosts the GraphQL endpoint
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+
+# Local dev data connector (no cloud needed)
+duckdb==0.10.3
+
+# Databricks connector (prod)
+databricks-sql-connector==3.3.0
+
+# Data handling
+pandas==2.2.2
+
+# Config and env management
+python-dotenv==1.0.1
+pydantic-settings==2.3.4

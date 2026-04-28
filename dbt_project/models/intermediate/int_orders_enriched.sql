@@ -1,4 +1,4 @@
-{#-- models/intermediate/int_orders_enriched.sql
+-- models/intermediate/int_orders_enriched.sql
 -- -----------------------------------------------------------------------
 -- INTERMEDIATE MODEL: int_orders_enriched
 -- PLATFORM SUPPORT: Databricks + Azure Fabric
@@ -10,7 +10,7 @@
 --   datediff()    → {{ datediff_fn() }}         argument ORDER is flipped in T-SQL!
 --   current_date()→ {{ current_date_fn() }}     getdate() in Fabric
 -- -----------------------------------------------------------------------
-#}
+
 with
 
 orders as (

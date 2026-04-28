@@ -1,4 +1,4 @@
-{#-- models/marts/orders/fct_orders.sql
+-- models/marts/orders/fct_orders.sql
 -- -----------------------------------------------------------------------
 -- MART MODEL: fct_orders
 -- PLATFORM SUPPORT: Databricks + Azure Fabric
@@ -8,7 +8,7 @@
 --   true/false booleans → 1/0 integers (Fabric uses BIT type)
 --   :: cast syntax      → cast() syntax throughout
 -- -----------------------------------------------------------------------
-#}
+
 with
 
 orders_enriched as (
