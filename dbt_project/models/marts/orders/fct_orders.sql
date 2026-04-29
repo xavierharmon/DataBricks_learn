@@ -2,11 +2,7 @@
 -- -----------------------------------------------------------------------
 -- MART MODEL: fct_orders
 -- PLATFORM SUPPORT: Databricks + Azure Fabric
---
--- CHANGES FROM ORIGINAL:
---   current_timestamp() → {{ current_timestamp_fn() }}
---   true/false booleans → 1/0 integers (Fabric uses BIT type)
---   :: cast syntax      → cast() syntax throughout
+
 -- -----------------------------------------------------------------------
 
 with

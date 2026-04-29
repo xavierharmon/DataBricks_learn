@@ -17,7 +17,7 @@ final as (
         email,
         first_name,
         last_name,
-        cast(first_name + ' ' + last_name as varchar(255))  as full_name,
+        concat(first_name, ' ', last_name) as full_name,
         -- NOTE: String concat uses + on both Databricks and Fabric (|| also works on Databricks)
         -- Using + here for Fabric compatibility
 
