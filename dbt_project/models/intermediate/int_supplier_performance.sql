@@ -110,7 +110,7 @@ supplier_material_counts as (
     select
         supplier_id,
         count(distinct material_id)                             as materials_supplied,
-        count(case when is_primary_supplier = 1 then 1 end)     as primary_material_count,
+        count(case when is_primary_supplier = TRUE then 1 end)     as primary_material_count,
         avg(quoted_unit_price)                                  as avg_quoted_price
     from supplier_materials
     group by supplier_id

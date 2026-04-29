@@ -2,13 +2,7 @@
 -- -----------------------------------------------------------------------
 -- INTERMEDIATE MODEL: int_orders_enriched
 -- PLATFORM SUPPORT: Databricks + Azure Fabric
---
--- CHANGES FROM ORIGINAL:
---   date_trunc()  → {{ date_trunc_fn() }}      macro handles dialect diff
---   year()        → {{ year_fn() }}             same on both, macro for clarity
---   dayofweek()   → {{ dayofweek_fn() }}        different name in T-SQL
---   datediff()    → {{ datediff_fn() }}         argument ORDER is flipped in T-SQL!
---   current_date()→ {{ current_date_fn() }}     getdate() in Fabric
+
 -- -----------------------------------------------------------------------
 
 with

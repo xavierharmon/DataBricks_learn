@@ -1,0 +1,13 @@
+supplier_id,supplier_name,country,state,supplier_type,avg_lead_time_days,quoted_fill_rate,payment_terms_days,is_preferred,quality_rating,onboarded_at,_loaded_at
+SUP-0001,TechFab Industries,US,CA,domestic,12,0.96,30,True,3.8,2022-10-30T01:45:07.947571,2026-04-28T19:39:28.595681
+SUP-0002,GlobalWeave Co,CN,,international,37,0.94,45,True,3.9,2024-08-02T00:34:34.926742,2026-04-28T19:39:28.595718
+SUP-0003,PolyMat Solutions,US,TX,domestic,9,0.98,30,True,4.7,2022-10-23T22:16:58.086013,2026-04-28T19:39:28.595754
+SUP-0004,EuroComponent GmbH,DE,,international,25,0.97,30,True,4.6,2022-06-26T23:59:45.918661,2026-04-28T19:39:28.595789
+SUP-0005,PacificRaw Materials,VN,,international,30,0.91,15,True,4.0,2023-12-23T19:40:27.512938,2026-04-28T19:39:28.595824
+SUP-0006,NaturaSupply Corp,US,OR,domestic,13,0.95,45,True,4.4,2024-03-02T18:32:49.202490,2026-04-28T19:39:28.595859
+SUP-0007,MetalWorks International,KR,,international,24,0.93,15,False,3.8,2023-12-07T21:10:24.486383,2026-04-28T19:39:28.595900
+SUP-0008,PackRight Solutions,US,OH,domestic,5,0.99,15,False,3.7,2024-03-13T23:34:19.731004,2026-04-28T19:39:28.595938
+SUP-0009,ChemSource Ltd,IN,,international,26,0.92,60,True,4.9,2024-11-02T19:41:25.756174,2026-04-28T19:39:28.595974
+SUP-0010,ElectroParts Asia,TW,,international,28,0.96,60,False,3.7,2023-01-04T09:11:14.918133,2026-04-28T19:39:28.596008
+SUP-0011,FiberFirst Textiles,BD,,international,35,0.9,45,False,4.0,2024-04-23T18:10:50.893789,2026-04-28T19:39:28.596042
+SUP-0012,AlpineNatural Goods,CH,,international,17,0.98,15,False,4.4,2022-10-16T05:30:16.405009,2026-04-28T19:39:28.596077
