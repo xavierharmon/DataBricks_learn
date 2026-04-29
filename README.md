@@ -128,3 +128,6 @@ Validates uniqueness, not-null, referential integrity.
 | **Fact table** | Measures events (orders, clicks, payments) |
 | **Dimension table** | Describes things (customers, products) |
 | **Semantic model** | Defines metrics ON TOP of mart tables |
+
+
+(https://github.com/xavierharmon/DataBricks_learn/blob/main/dbt-dag.png)
