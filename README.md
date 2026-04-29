@@ -130,4 +130,4 @@ Validates uniqueness, not-null, referential integrity.
 | **Semantic model** | Defines metrics ON TOP of mart tables |
 
 
-(https://github.com/xavierharmon/DataBricks_learn/blob/main/dbt-dag.png)
+![Image description here](https://github.com/xavierharmon/DataBricks_learn/blob/main/dbt-dag.png)
